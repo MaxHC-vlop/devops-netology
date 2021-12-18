@@ -1,2 +1,2 @@
 # devops-netology
-Hello World
+# gitignore hide terraform files
