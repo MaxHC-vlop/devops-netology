@@ -1,2 +1,11 @@
-# devops-netology
-# gitignore hide terraform files
+Гитигнор будет игнорировать
+.tfstate
+.tfstate.
+crash.log
+.tfvars
+override.tf
+override.tf.json
+_override.tf
+_override.tf.json
+.terraformrc
+terraform.rc
