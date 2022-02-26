@@ -1,75 +1,141 @@
-__1. Какой системный вызов делает команда cd? В прошлом ДЗ мы выяснили, что cd не является самостоятельной программой, это shell builtin, поэтому запустить strace непосредственно на cd не получится. Тем не менее, вы можете запустить strace на /bin/bash -c 'cd /tmp'. В этом случае вы увидите полный список системных вызовов, которые делает сам bash при старте. Вам нужно найти тот единственный, который относится именно к cd. Обратите внимание, что strace выдаёт результат своей работы в поток stderr, а не в stdout.__
+__1. На лекции мы познакомились с node_exporter. В демонстрации его исполняемый файл запускался в background. Этого достаточно для демо, но не для настоящей production-системы, где процессы должны находиться под внешним управлением. Используя знания из лекции по systemd, создайте самостоятельно простой unit-файл для node_exporter:__
+- поместите его в автозагрузку,
+- предусмотрите возможность добавления опций к запускаемому процессу через внешний файл (посмотрите, например, на systemctl cat cron),
+- удостоверьтесь, что с помощью systemctl процесс корректно стартует, завершается, а после перезагрузки автоматически поднимается.
+```
+vagrant@vagrant:~$ ps -e |grep node_exporter   
+   1375 ?        00:00:00 node_exporter
+vagrant@vagrant:~$ systemctl stop node_exporter
+==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
+Authentication is required to stop 'node_exporter.service'.
+Authenticating as: vagrant,,, (vagrant)
+Password: 
+==== AUTHENTICATION COMPLETE ===
+vagrant@vagrant:~$ ps -e |grep node_exporter
+vagrant@vagrant:~$ systemctl start node_exporter
+==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
+Authentication is required to start 'node_exporter.service'.
+Authenticating as: vagrant,,, (vagrant)
+Password: 
+==== AUTHENTICATION COMPLETE ===
+vagrant@vagrant:~$ ps -e |grep node_exporter
+   1420 ?        00:00:00 node_exporter
+vagrant@vagrant:~$ 
 
-```
-Системный вызов команды CD -> chdir("/tmp") в нашем случае.
-```
-__2. Попробуйте использовать команду file на объекты разных типов на файловой системе.Используя strace выясните, где находится база данных file на основании которой она делает свои догадки.__
-```
-Файл базы типов - /usr/share/misc/magic.mgc
-в тексте это:
-openat(AT_FDCWD, "/usr/share/misc/magic.mgc", O_RDONLY) = 3
-Так же ищет пользовательские файлы, по всей видимости:
-stat("/home/vlad/.magic.mgc", 0x7ffedefbea50) = -1 ENOENT (Нет такого файла или каталога)
-stat("/home/vlad/.magic", 0x7ffedefbea50) = -1 ENOENT (Нет такого файла или каталога)
-openat(AT_FDCWD, "/etc/magic.mgc", O_RDONLY) = -1 ENOENT (Нет такого файла или каталога)
-stat("/etc/magic", {st_mode=S_IFREG|0644, st_size=111, ...}) = 0
-openat(AT_FDCWD, "/etc/magic", O_RDONLY) = 3
-```
-__3. Предположим, приложение пишет лог в текстовый файл. Этот файл оказался удален (deleted в lsof), однако возможности сигналом сказать приложению переоткрыть файлы или просто перезапустить приложение – нет. Так как приложение продолжает писать в удаленный файл, место на диске постепенно заканчивается. Основываясь на знаниях о перенаправлении потоков предложите способ обнуления открытого удаленного файла (чтобы освободить место на файловой системе).
-Занимают ли зомби-процессы какие-то ресурсы в ОС (CPU, RAM, IO)?__
-```
-vagrant@vagrant:~$ lsof -p 1126
-...
-vi      1126 vagrant    4u   REG  253,0    12288  526898 /home/vagrant/.tst_bash.swp (deleted)
 
-vagrant@vagrant:~$ echo '' >/proc/1126/fd/4
-```
-__4. Занимают ли зомби-процессы какие-то ресурсы в ОС (CPU, RAM, IO)?__
-```
-"Зомби" процессы, в отличии от "сирот" освобождают свои ресурсы, но не освобождают запись в таблице процессов. 
-запись освободиться при вызове wait() родительским процессом. 
-```
-__5. На какие файлы вы увидели вызовы группы open за первую секунду работы утилиты? Воспользуйтесь пакетом bpfcc-tools для Ubuntu 20.04.__
-```
-vagrant@vagrant:~sudo -i
-root@vagrant:~# dpkg -L bpfcc-tools | grep sbin/opensnoop
-/usr/sbin/opensnoop-bpfcc
-root@vagrant:~# /usr/sbin/opensnoop-bpfcc
-PID    COMM               FD ERR PATH
-766    vminfo              6   0 /var/run/utmp
-562    dbus-daemon        -1   2 /usr/local/share/dbus-1/system-services
-562    dbus-daemon        18   0 /usr/share/dbus-1/system-services
-562    dbus-daemon        -1   2 /lib/dbus-1/system-services
-562    dbus-daemon        18   0 /var/lib/snapd/dbus-1/system-services/
-```
-__6. Какой системный вызов использует uname -a? Приведите цитату из man по этому системному вызову, где описывается альтернативное местоположение в /proc, где можно узнать версию ядра и релиз ОС.__
-```
-системный вызов uname()
+Прописан конфигруационный файл:
+vagrant@vagrant:/etc/systemd/system$ cat /etc/systemd/system/node_exporter.service
+[Unit]
+Description=Node Exporter
+ 
+[Service]
+ExecStart=/opt/node_exporter/node_exporter
+EnvironmentFile=/etc/default/node_exporter
+ 
+[Install]
+WantedBy=default.target
 
-Цитата :
-     Part of the utsname information is also accessible  via  /proc/sys/ker‐
-       nel/{ostype, hostname, osrelease, version, domainname}.
-```
-__7. Чем отличается последовательность команд через ; и через && в bash?__
-```
-&& -  условный оператор, 
-;  - разделитель последовательных команд
 
-test -d /tmp/some_dir && echo Hi - в данном случае echo  отработает только при успешном заверщении команды test
+при перезапуске переменная окружения выставляется :
+agrant@vagrant:/etc/systemd/system$ sudo cat /proc/1809/environ
+LANG=en_US.UTF-8LANGUAGE=en_US:PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
+INVOCATION_ID=0fcb24d52895405c875cbb9cbc28d3ffJOURNAL_STREAM=9:35758MYVAR=some_value
+```
+__2. Ознакомьтесь с опциями node_exporter и выводом `/metrics` по-умолчанию. Приведите несколько опций, которые вы бы выбрали для базового мониторинга хоста по CPU, памяти, диску и сети.__
+```
+CPU:
+    node_cpu_seconds_total{cpu="0",mode="idle"} 2238.49
+    node_cpu_seconds_total{cpu="0",mode="system"} 16.72
+    node_cpu_seconds_total{cpu="0",mode="user"} 6.86
+    process_cpu_seconds_total
+    
+Memory:
+    node_memory_MemAvailable_bytes 
+    node_memory_MemFree_bytes
+    
+Disk(если несколько дисков то для каждого):
+    node_disk_io_time_seconds_total{device="sda"} 
+    node_disk_read_bytes_total{device="sda"} 
+    node_disk_read_time_seconds_total{device="sda"} 
+    node_disk_write_time_seconds_total{device="sda"}
+    
+Network(так же для каждого активного адаптера):
+    node_network_receive_errs_total{device="eth0"} 
+    node_network_receive_bytes_total{device="eth0"} 
+    node_network_transmit_bytes_total{device="eth0"}
+    node_network_transmit_errs_total{device="eth0"}
+```
+__3. Установите в свою виртуальную машину Netdata. Воспользуйтесь готовыми пакетами для установки (`sudo apt install -y netdata`). После успешной установки:__
 
-set -e - прерывает сессию при любом ненулевом значении исполняемых команд в конвеере кроме последней.
+- в конфигурационном файле /etc/netdata/netdata.conf в секции [web] замените значение с localhost на bind to = 0.0.0.0,
+- добавьте в Vagrantfile проброс порта Netdata на свой локальный компьютер и сделайте vagrant `reload`:
 ```
-__8. Из каких опций состоит режим bash set -euxo pipefail и почему его хорошо было бы использовать в сценариях?__
+config.vm.network "forwarded_port", guest: 19999, host: 19999
 ```
--e прерывает выполнение исполнения при ошибке любой команды кроме последней в последовательности 
--x вывод трейса простых команд 
--u неустановленные/не заданные параметры и переменные считаются как ошибки, с выводом в stderr текста ошибки и выполнит завершение неинтерактивного вызова
--o pipefail возвращает код возврата набора/последовательности команд, ненулевой при последней команды или 0 для успешного выполнения команд.
+__После успешной перезагрузки в браузере на своем ПК (не в виртуальной машине) вы должны суметь зайти на localhost:19999. Ознакомьтесь с метриками, которые по умолчанию собираются Netdata и с комментариями, которые даны к этим метрикам.__
 ```
-__9. Используя -o stat для ps, определите, какой наиболее часто встречающийся статус у процессов в системе. В man ps ознакомьтесь (/PROCESS STATE CODES) что значат дополнительные к основной заглавной буквы статуса процессов. Его можно не учитывать при расчете (считать S, Ss или Ssl равнозначными).__
+Netdata установлена, но проброшен порт 9999, так как 19999 - занять на хостовой машине под локальный netdata 
+
+информация с хостовой машины:
+21:56:36 alex@upc(0):~/vagrant$ sudo lsof -i :19999
+COMMAND   PID    USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+netdata 50358 netdata    4u  IPv4 1003958      0t0  TCP localhost:19999 (LISTEN)
+21:56:39 alex@upc(0):~/vagrant$ sudo lsof -i :9999
+COMMAND     PID USER   FD   TYPE  DEVICE SIZE/OFF NODE NAME
+chrome     4089 alex   80u  IPv4 1112886      0t0  TCP localhost:38598->localhost:9999 (ESTABLISHED)
+VBoxHeadl 52075 alex   21u  IPv4 1053297      0t0  TCP *:9999 (LISTEN)
+VBoxHeadl 52075 alex   30u  IPv4 1113792      0t0  TCP localhost:9999->localhost:38598 (ESTABLISHED)
+
+информация с vm машины:
+vagrant@vagrant:~$ sudo lsof -i :19999
+COMMAND  PID    USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+netdata 1895 netdata    4u  IPv4  30971      0t0  TCP *:19999 (LISTEN)
+netdata 1895 netdata   55u  IPv4  31861      0t0  TCP vagrant:19999->_gateway:38598 (ESTABLISHED)
 ```
-Самые частые (описание топроное, но по руссски :) ):
-S*(S,S+,Ss,Ssl,Ss+) - Процессы ожидающие завершения (спящие с прерыванием "сна")
-I*(I,I<) - фоновые(бездействующие) процессы ядра
-доп символы это доп характеристики, например приоритет.
+__4. Можно ли по выводу `dmesg` понять, осознает ли ОС, что загружена не на настоящем оборудовании, а на системе виртуализации?__
+```
+    agrant@vagrant:~$ dmesg |grep virtualiz
+[    0.002836] CPU MTRRs all blank - virtualized system.
+[    0.074550] Booting paravirtualized kernel on KVM
+[    4.908209] systemd[1]: Detected virtualization oracle.
+
+
+
+Если сравнить с хостовой машиной то это становится очевидным (ps:хорошо когда такая есть под рукой для обучения :) ):
+21:56:42 alex@upc(0):~/vagrant$ dmesg |grep virtualiz
+[    0.048461] Booting paravirtualized kernel on bare hardware
+```
+__5. Как настроен `sysctl fs.nr_open` на системе по-умолчанию? Узнайте, что означает этот параметр. Какой другой существующий лимит не позволит достичь такого числа (`ulimit --help`)?__
+```
+vagrant@vagrant:~$ /sbin/sysctl -n fs.nr_open
+1048576
+
+Это максимальное число открытых дескрипторов для ядра (системы), для пользователя задать больше этого числа нельзя (если не менять). 
+Число задается кратное 1024, в данном случае =1024*1024. 
+
+Но макс.предел ОС можно посмотреть так :
+vagrant@vagrant:~$ cat /proc/sys/fs/file-max
+9223372036854775807
+```
+__6. Запустите любой долгоживущий процесс (не `ls`, который отработает мгновенно, а, например, `sleep 1h`) в отдельном неймспейсе процессов; покажите, что ваш процесс работает под PID 1 через `nsenter`. Для простоты работайте в данном задании под root (`sudo -i`). Под обычным пользователем требуются дополнительные опции (`--map-root-user`) и т.д.__
+```
+root@vagrant:~# ps -e |grep sleep
+   2020 pts/2    00:00:00 sleep
+root@vagrant:~# nsenter --target 2020 --pid --mount
+root@vagrant:/# ps
+    PID TTY          TIME CMD
+      2 pts/0    00:00:00 bash
+     11 pts/0    00:00:00 ps
+```
+__7. Найдите информацию о том, что такое `:(){ :|:& };:`. Запустите эту команду в своей виртуальной машине Vagrant с Ubuntu 20.04 (*это важно, поведение в других ОС не проверялось*). Некоторое время все будет "плохо", после чего (минуты) – ОС должна стабилизироваться. Вызов `dmesg` расскажет, какой механизм помог автоматической стабилизации. Как настроен этот механизм по-умолчанию, и как изменить число процессов, которое можно создать в сессии?__
+```
+Из предыдущих лекций ясно что это функция внутри "{}", судя по всему с именем ":" , которая после опредения в строке запускает саму себя.
+Данная функция пораждает два фоновых процесса самой себя,
+получается бинарное дерево плодящее процессы.
+
+А функционал судя по всему этот:
+[ 3099.973235] cgroup: fork rejected by pids controller in /user.slice/user-1000.slice/session-4.scope
+[ 3103.171819] cgroup: fork rejected by pids controller in /user.slice/user-1000.slice/session-11.scope
+
+Если установить ulimit -u 50 - число процессов будет ограниченно 50 для пользоователя. 
 ```
