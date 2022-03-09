@@ -2,45 +2,56 @@ __1. На лекции мы познакомились с node_exporter. В де
 - поместите его в автозагрузку,
 - предусмотрите возможность добавления опций к запускаемому процессу через внешний файл (посмотрите, например, на systemctl cat cron),
 - удостоверьтесь, что с помощью systemctl процесс корректно стартует, завершается, а после перезагрузки автоматически поднимается.
+
+```shell
+cd ~
+wget https://github.com/prometheus/node_exporter/releases/download/v1.3.0/node_exporter-1.3.0.linux-amd64.tar.gz
+tar xzf node_exporter-1.3.0.linux-amd64.tar.gz
+rm -f node_exporter-1.3.0.linux-amd64.tar.gz
+rm -r node_exporter-1.3.0.linux-amd64
+sudo touch opt/node_exporter.env
+echo "EXTRA_OPTS=\"--log.level=info\"" | sudo tee opt/node_exporter.env
+sudo mv node_exporter-1.3.0.linux-amd64/node_exporter /usr/local/bin/
 ```
-vagrant@vagrant:~$ ps -e |grep node_exporter   
-   1375 ?        00:00:00 node_exporter
-vagrant@vagrant:~$ systemctl stop node_exporter
-==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
-Authentication is required to stop 'node_exporter.service'.
-Authenticating as: vagrant,,, (vagrant)
-Password: 
-==== AUTHENTICATION COMPLETE ===
-vagrant@vagrant:~$ ps -e |grep node_exporter
-vagrant@vagrant:~$ systemctl start node_exporter
-==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ===
-Authentication is required to start 'node_exporter.service'.
-Authenticating as: vagrant,,, (vagrant)
-Password: 
-==== AUTHENTICATION COMPLETE ===
-vagrant@vagrant:~$ ps -e |grep node_exporter
-   1420 ?        00:00:00 node_exporter
-vagrant@vagrant:~$ 
-
-
-Прописан конфигруационный файл:
-vagrant@vagrant:/etc/systemd/system$ cat /etc/systemd/system/node_exporter.service
+```shell
+sudo tee /etc/systemd/system/node_exporter.service<<EOF
 [Unit]
 Description=Node Exporter
+After=network.target
  
 [Service]
-ExecStart=/opt/node_exporter/node_exporter
-EnvironmentFile=/etc/default/node_exporter
+Type=simple
+ExecStart=/usr/local/bin/node_exporter $EXTRA_OPTS
+StandardOutput=file:/var/log/node_explorer.log
+StandardError=file:/var/log/node_explorer.log
  
 [Install]
-WantedBy=default.target
-
-
-при перезапуске переменная окружения выставляется :
-agrant@vagrant:/etc/systemd/system$ sudo cat /proc/1809/environ
-LANG=en_US.UTF-8LANGUAGE=en_US:PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin
-INVOCATION_ID=0fcb24d52895405c875cbb9cbc28d3ffJOURNAL_STREAM=9:35758MYVAR=some_value
+WantedBy=multi-user.target
+EOF
 ```
+
+```shell
+sudo systemctl daemon-reload
+sudo systemctl start node_exporter
+sudo systemctl enable node_exporter
+```
+
+добавление опций к запускаемому процессу через внешний файл
+```shell
+echo "EXTRA_OPTS=\"--log.level=info\"" | sudo tee opt/node_exporter.env
+```
+```shell
+$ journalctl -u node_exporter.service
+-- Logs begin at Sat 2021-11-20 21:06:21 UTC, end at Sat 2021-11-20 21:27:25 UTC. --
+Nov 20 21:16:13 vagrant systemd[1]: Started Node Exporter.
+Nov 20 21:17:38 vagrant systemd[1]: Stopping Node Exporter...
+Nov 20 21:17:38 vagrant systemd[1]: node_exporter.service: Succeeded.
+Nov 20 21:17:38 vagrant systemd[1]: Stopped Node Exporter.
+Nov 20 21:27:12 vagrant systemd[1]: Started Node Exporter.
+-- Reboot --
+Nov 20 21:31:22 vagrant systemd[1]: Started Node Exporter.
+```
+
 __2. Ознакомьтесь с опциями node_exporter и выводом `/metrics` по-умолчанию. Приведите несколько опций, которые вы бы выбрали для базового мониторинга хоста по CPU, памяти, диску и сети.__
 ```
 CPU:
