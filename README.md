@@ -1,191 +1,268 @@
-### Домашнее задание к занятию "3.7. Компьютерные сети, лекция 2"
+### Домашнее задание к занятию "3.8. Компьютерные сети, лекция 3"  
 
-#### 1. Проверьте список доступных сетевых интерфейсов на вашем компьютере. Какие команды есть для этого в Linux и в Windows?  
-
-Linux
-- `ip link show`
+#### 1. Подключитесь к публичному маршрутизатору в интернет. Найдите маршрут к вашему публичному IP
 ```shell
-$ ip link show
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
-    link/ether xx:xx:27:73:xx:xx brd ff:ff:ff:ff:ff:ff
+telnet route-views.routeviews.org
+Username: rviews
+show ip route x.x.x.x/32
+show bgp x.x.x.x/32
 ```
-- `ifconfig -a`
 ```shell
-$ ip link show
-1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000
-    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
-2: eth0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP mode DEFAULT group default qlen 1000
-    link/ether xx:xx:27:73:xx:xx brd ff:ff:ff:ff:ff:ff
-vagrant@vagrant:~$ ifconfig -a
-eth0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
-        inet 10.0.2.15  netmask 255.255.255.0  broadcast 10.0.2.255
-        inet6 xxxx::a00:27ff:fe73:xxxx  prefixlen 64  scopeid 0x20<link>
-        ether xx:xx:27:73:xx:xx  txqueuelen 1000  (Ethernet)
-        RX packets 16095  bytes 15813251 (15.8 MB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 7794  bytes 984770 (984.7 KB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
-
-lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
-        inet 127.0.0.1  netmask 255.0.0.0
-        inet6 ::1  prefixlen 128  scopeid 0x10<host>
-        loop  txqueuelen 1000  (Local Loopback)
-        RX packets 284  bytes 26504 (26.5 KB)
-        RX errors 0  dropped 0  overruns 0  frame 0
-        TX packets 284  bytes 26504 (26.5 KB)
-        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+route-views>show ip route 185.170.xxx.xxx
+Routing entry for 185.170.xxx.0/22
+  Known via "bgp 6447", distance 20, metric 0
+  Tag 8283, type external
+  Last update from 94.142.247.3 3w2d ago
+  Routing Descriptor Blocks:
+  * 94.142.247.3, from 94.142.247.3, 3w2d ago
+      Route metric is 0, traffic share count is 1
+      AS Hops 4
+      Route tag 8283
+      MPLS label: none
+```
+```shell
+route-views>show bgp 185.170.xxx.xxx
+BGP routing table entry for 185.170.xxx.0/22, version 1295019693
+Paths: (24 available, best #10, table default)
+  Not advertised to any peer
+  Refresh Epoch 1
+  4901 6079 1299 5504 206912
+    162.250.137.254 from 162.250.137.254 (162.250.137.254)
+      Origin IGP, localpref 100, valid, external
+      Community: 65000:10100 65000:10300 65000:10400
+      path 7FE0DF658448 RPKI State not found
+      rx pathid: 0, tx pathid: 0
+..........
+  Refresh Epoch 1
+  19214 174 1299 5504 206912
+    208.74.64.40 from 208.74.64.40 (208.74.64.40)
+      Origin IGP, localpref 100, valid, external
+      Community: 174:21000 174:22013
+      path 7FE1733FC848 RPKI State not found
+      rx pathid: 0, tx pathid: 0
+  Refresh Epoch 1
+  1351 6939 1299 5504 206912
+    132.198.255.253 from 132.198.255.253 (132.198.255.253)
+      Origin IGP, localpref 100, valid, external
+      path 7FE0DA7650A8 RPKI State not found
+      rx pathid: 0, tx pathid: 0
 ```
 
-Windows
+#### 2. Создайте dummy0 интерфейс в Ubuntu. Добавьте несколько статических маршрутов. Проверьте таблицу маршрутизации.
 
-- `ifconfig -a`
-
-
-#### 2. Какой протокол используется для распознавания соседа по сетевому интерфейсу? Какой пакет и команды есть в Linux для этого?  
-
-Протокол LLDP.  
-Пакет lldpd.  
-Команда lldpctl.
-
-#### 3. Какая технология используется для разделения L2 коммутатора на несколько виртуальных сетей? Какой пакет и команды есть в Linux для этого? Приведите пример конфига.  
-
-Технология называется VLAN (Virtual LAN).  
-Пакет в Ubuntu Linux - vlan  
-Пример конфига:
+Запуск модуля
 ```shell
+# echo "dummy" > /etc/modules-load.d/dummy.conf
+# echo "options dummy numdummies=2" > /etc/modprobe.d/dummy.conf
+```
+Настройка интерфейса
+```shell
+# cat << "EOF" >> /etc/systemd/network/10-dummy0.netdev
+[NetDev]
+Name=dummy0
+Kind=dummy
+EOF
+# cat << "EOF" >> /etc/systemd/network/20-dummy0.network
+[Match]
+Name=dummy0
+
+[Network]
+Address=10.0.8.1/24
+EOF
+#
+#
+# systemctl restart systemd-networkd
+```
+Добавление статического маршрута
+```shell
+# nano /etc/netplan/02-networkd.yaml
 network:
   version: 2
-  renderer: networkd
   ethernets:
-    ens4:
-      optional: yes
-      addresses: 
-        - 192.168.0.2/24
-  vlans:
-    vlan88:
-      id: 88
-      link: ens4 
+    eth0:
+      optional: true
       addresses:
-        - 192.168.1.2/24
+        - 10.0.2.3/24
+      routes:
+        - to: 10.0.4.0/24
+          via: 10.0.2.2
 ```
-
-#### 4. Какие типы агрегации интерфейсов есть в Linux? Какие опции есть для балансировки нагрузки? Приведите пример конфига.  
-
-В Linux есть две технологии агрегации (LAG): bonding и teaming.  
-
-Типы агрегации bonding:
-
+Таблица маршрутизации
 ```shell
-$ modinfo bonding | grep mode:
-parm:           mode:Mode of operation; 0 for balance-rr, 1 for active-backup, 2 for balance-xor, 3 for broadcast, 4 for 802.3ad, 5 for balance-tlb, 6 for balance-alb (charp)
+# ip r
+default via 10.0.2.2 dev eth0 proto dhcp src 10.0.2.15 metric 100
+10.0.2.0/24 dev eth0 proto kernel scope link src 10.0.2.3
+10.0.2.2 dev eth0 proto dhcp scope link src 10.0.2.15 metric 100
+10.0.4.0/24 via 10.0.2.2 dev eth0 proto static
+10.0.8.0/24 dev dummy0 proto kernel scope link src 10.0.8.1
 ```
-
-`active-backup` и `broadcast` обеспечивают только отказоустойчивость  
-`balance-tlb`, `balance-alb`, `balance-rr`, `balance-xor` и `802.3ad` обеспечат отказоустойчивость и балансировку
-
-`balance-rr` - Политика round-robin. Пакеты отправляются последовательно, начиная с первого доступного интерфейса и заканчивая последним. Эта политика применяется для балансировки нагрузки и отказоустойчивости.  
-`active-backup` - Политика активный-резервный. Только один сетевой интерфейс из объединённых будет активным. Другой интерфейс может стать активным, только в том случае, когда упадёт текущий активный интерфейс. Эта политика применяется для отказоустойчивости.  
-`balance-xor` - Политика XOR. Передача распределяется между сетевыми картами используя формулу: [( «MAC адрес источника» XOR «MAC адрес назначения») по модулю «число интерфейсов»]. Получается одна и та же сетевая карта передаёт пакеты одним и тем же получателям. Политика XOR применяется для балансировки нагрузки и отказоустойчивости.  
-`broadcast` - Широковещательная политика. Передает всё на все сетевые интерфейсы. Эта политика применяется для отказоустойчивости.  
-`802.3ad` - Политика агрегирования каналов по стандарту IEEE 802.3ad. Создаются агрегированные группы сетевых карт с одинаковой скоростью и дуплексом. При таком объединении передача задействует все каналы в активной агрегации, согласно стандарту IEEE 802.3ad. Выбор через какой интерфейс отправлять пакет определяется политикой по умолчанию XOR политика.  
-`balance-tlb` - Политика адаптивной балансировки нагрузки передачи. Исходящий трафик распределяется в зависимости от загруженности каждой сетевой карты (определяется скоростью загрузки). Не требует дополнительной настройки на коммутаторе. Входящий трафик приходит на текущую сетевую карту. Если она выходит из строя, то другая сетевая карта берёт себе MAC адрес вышедшей из строя карты.  
-`balance-alb` - Политика адаптивной балансировки нагрузки. Включает в себя политику balance-tlb плюс осуществляет балансировку входящего трафика. Не требует дополнительной настройки на коммутаторе. Балансировка входящего трафика достигается путём ARP переговоров.  
-
-`active-backup` на отказоустойчивость:
+Статический маршрут
 ```shell
- network:
-   version: 2
-   renderer: networkd
-   ethernets:
-     ens3:
-       dhcp4: no 
-       optional: true
-     ens5: 
-       dhcp4: no 
-       optional: true
-   bonds:
-     bond0: 
-       dhcp4: yes 
-       interfaces:
-         - ens3
-         - ens5
-       parameters:
-         mode: active-backup
-         primary: ens3
-         mii-monitor-interval: 2
+# ip r | grep static
+10.0.4.0/24 via 10.0.2.2 dev eth0 proto static
 ```
-`balance-alb` - балансировка:
+
+
+#### 3. Проверьте открытые TCP порты в Ubuntu, какие протоколы и приложения используют эти порты? Приведите несколько примеров.
 ```shell
-   bonds:
-     bond0: 
-       dhcp4: yes 
-       interfaces:
-         - ens3
-         - ens5
-       parameters:
-         mode: balance-alb
-         mii-monitor-interval: 2
+# ss -tnlp
+State    Recv-Q   Send-Q      Local Address:Port       Peer Address:Port   Process
+LISTEN   0        4096              0.0.0.0:111             0.0.0.0:*       users:(("rpcbind",pid=555,fd=4),("systemd",pid=1,fd=35))
+LISTEN   0        4096        127.0.0.53%lo:53              0.0.0.0:*       users:(("systemd-resolve",pid=556,fd=13))
+LISTEN   0        128               0.0.0.0:22              0.0.0.0:*       users:(("sshd",pid=1325,fd=3))
+LISTEN   0        4096                 [::]:111                [::]:*       users:(("rpcbind",pid=555,fd=6),("systemd",pid=1,fd=37))
+LISTEN   0        128                  [::]:22                 [::]:*       users:(("sshd",pid=1325,fd=4))
 ```
+:53 - DNS  
+:22 - SSH
 
-
-#### 5. Сколько IP адресов в сети с маской /29 ? Сколько /29 подсетей можно получить из сети с маской /24. Приведите несколько примеров /29 подсетей внутри сети 10.10.10.0/24.
-
+#### 4. Проверьте используемые UDP сокеты в Ubuntu, какие протоколы и приложения используют эти порты?
 ```shell
-$ ipcalc -b 10.10.10.0/29
-Address:   10.10.10.0
-Netmask:   255.255.255.248 = 29
-Wildcard:  0.0.0.7
-=>
-Network:   10.10.10.0/29
-HostMin:   10.10.10.1
-HostMax:   10.10.10.6
-Broadcast: 10.10.10.7
-Hosts/Net: 6                     Class A, Private Internet
+# ss -unap
+State    Recv-Q   Send-Q      Local Address:Port       Peer Address:Port   Process
+UNCONN   0        0           127.0.0.53%lo:53              0.0.0.0:*       users:(("systemd-resolve",pid=556,fd=12))
+UNCONN   0        0          10.0.2.15%eth0:68              0.0.0.0:*       users:(("systemd-network",pid=12712,fd=20))
+UNCONN   0        0                 0.0.0.0:111             0.0.0.0:*       users:(("rpcbind",pid=555,fd=5),("systemd",pid=1,fd=36))
+UNCONN   0        0                    [::]:111                [::]:*       users:(("rpcbind",pid=555,fd=7),("systemd",pid=1,fd=38))
 ```
-8 адресов = 6 для хостов, 1 адрес сети и 1 широковещательный адрес.
+:53 - DNS  
+:68 - Используется клиентскими машинами для получения информации о динамической IP-адресации от DHCP-сервера.
+#### 5. Используя diagrams.net, создайте L3 диаграмму вашей домашней сети или любой другой сети, с которой вы работали.
+![](pic/network_diagram.png)
+#### 6*. Установите Nginx, настройте в режиме балансировщика TCP или UDP.
 
-Сеть с маской /24 можно разбить на 32 подсети с маской /29
+Создаем 4 VM (1-ый - клиент, 2-ой - балансировщик, 3-ий и 4-ый - веб-серверы)
 
-#### 6. Задача: вас попросили организовать стык между 2-мя организациями. Диапазоны 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 уже заняты. Из какой подсети допустимо взять частные IP адреса? Маску выберите из расчета максимум 40-50 хостов внутри подсети.
-
-- Можно взять адреса из сети для CGNAT - 100.64.0.0/10.
+vagrantfile
 ```shell
-$ ipcalc -b 100.64.0.0/10 -s 50
-Address:   100.64.0.0
-Netmask:   255.192.0.0 = 10
-Wildcard:  0.63.255.255
-=>
-Network:   100.64.0.0/10
-HostMin:   100.64.0.1
-HostMax:   100.127.255.254
-Broadcast: 100.127.255.255
-Hosts/Net: 4194302               Class A
+boxes = {
+  'netology1' => '10',
+  'netology2' => '60',
+  'netology3' => '90',
+  'netology4' => '120'
+}
 
-1. Requested size: 50 hosts
-Netmask:   255.255.255.192 = 26
-Network:   100.64.0.0/26
-HostMin:   100.64.0.1
-HostMax:   100.64.0.62
-Broadcast: 100.64.0.63
-Hosts/Net: 62                    Class A
+Vagrant.configure("2") do |config|
+  config.vm.network "private_network", virtualbox__intnet: true, auto_config: false
+  config.vm.provider "virtualbox" do |v|
+    v.memory = 1024
+    v.cpus = 1
+  end
+  config.vm.box = "bento/ubuntu-20.04"
+
+  boxes.each do |k, v|
+    config.vm.define k do |node|
+      node.vm.provision "shell" do |s|
+        s.inline = "hostname $1;"\
+          "ip addr add $2 dev eth1;"\
+          "ip link set dev eth1 up;"\
+          "apt -y update;"\
+          "apt -y install nginx;"\
+          "mkdir -p /data/www;"\
+          "echo Hello from $1 >> /data/www/index.html;"
+        s.args = [k, "172.28.128.#{v}/24"]
+      end
+    end
+  end
+end
 ```
-- Маска для диапазонов будет /26, она позволит подключить 62 хоста.
+На балансировщике (VM2) добавляем конфиг
+```shell
+$ sudo nano /etc/nginx/conf.d/proxyTCP.conf
+     upstream backend1 {
+         server 172.28.128.90:8080;
+         server 172.28.128.120:8080;
+     }
+     server {
+         listen 8080;
+         location / {
+             proxy_pass http://backend1;
+         }
+     }
 
-#### 7. Как проверить ARP таблицу в Linux, Windows? Как очистить ARP кеш полностью? Как из ARP таблицы удалить только один нужный IP?
+$ sudo nginx -s reload
+```
+На веб-серверах (VM3, VM4) меняем конфиги
+```shell
+$ sudo nano /etc/nginx/sites-enabled/default
+server {
+     listen 8080;
+     location / {
+             root /data/www;
+             index  index.html index.htm;
+     }
+}
 
-Проверить таблицу можно так:
+$ sudo nginx -s reload
+```
+Отдаем запрос с VM1
+```shell
+$ curl 172.28.128.60:8080
+Hello from netology3
+$ curl 172.28.128.60:8080
+Hello from netology4
+$ curl 172.28.128.60:8080
+Hello from netology3
+$ curl 172.28.128.60:8080
+Hello from netology4
+```
 
-- Linux: `ip neigh`, `arp -n`
-- Windows: `arp -a`
+#### 7*. Установите bird2, настройте динамический протокол маршрутизации RIP.
 
-Очистить кеш так:
+#### 8*. Установите Netbox, создайте несколько IP префиксов, используя curl проверьте работу API.
 
-- Linux: `ip neigh flush`
-- Windows: `arp -d *`
-
-Удалить один IP так:
-
-- Linux: `ip neigh delete <IP> dev <INTERFACE>`, `arp -d <IP>`
-- Windows: `arp -d <IP>`
+Установка docker
+```shell
+# curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+# echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# sudo apt-get update
+# sudo apt-get install docker-ce docker-ce-cli containerd.io
+# apt install docker-compose
+```
+Запуск Netbox
+```shell
+# git clone -b release https://github.com/netbox-community/netbox-docker.git
+# cd netbox-docker
+# tee docker-compose.override.yml <<EOF
+version: '3.4'
+services:
+  netbox:
+    ports:
+      - 8000:8080
+EOF
+# docker-compose pull
+# docker-compose up
+```
+Запрос на создание префикса через `curl`
+```shell
+$ sudo curl -ss -X POST -H "Authorization: Token 0123456789abcdef0123456789abcdef01234567" -H "Content-Type: application/json" -H "Accept: application/json; indent=4" http://10.0.2.15:8000/api/ipam/prefixes/ --data '{"prefix": "10.0.8.0/24"}'
+{
+    "id": 8,
+    "url": "http://10.0.2.15:8000/api/ipam/prefixes/8/",
+    "display": "10.0.8.0/24",
+    "family": {
+        "value": 4,
+        "label": "IPv4"
+    },
+    "prefix": "10.0.8.0/24",
+    "site": null,
+    "vrf": null,
+    "tenant": null,
+    "vlan": null,
+    "status": {
+        "value": "active",
+        "label": "Active"
+    },
+    "role": null,
+    "is_pool": false,
+    "mark_utilized": false,
+    "description": "",
+    "tags": [],
+    "custom_fields": {},
+    "created": "2021-12-02",
+    "last_updated": "2021-12-02T15:03:45.193570Z",
+    "children": 0,
+    "_depth": 0
+}
+```
+![](pic/netbox.png)
